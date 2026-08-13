@@ -20,9 +20,11 @@ Route::post('/testmail', function (Request $request) {
     $request->validate(['email' => 'required|email']);
 
     try {
-        Mail::raw('This is a test mail from A Unique Tel.', function ($message) use ($request) {
+        $company = config('registration.company.name');
+
+        Mail::raw('This is a test mail from ' . $company . '.', function ($message) use ($request, $company) {
             $message->to($request->email)
-                    ->subject('A Unique Tel - Test Mail');
+                    ->subject($company . ' - Test Mail');
         });
 
         return back()->with('status', 'Test mail sent to ' . $request->email);
