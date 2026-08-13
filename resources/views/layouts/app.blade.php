@@ -10,7 +10,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <meta name="theme-color" content="#12294A">
-    <title>@yield('title', 'Register') — {{ config('app.name') }}</title>
+    <title>@yield('title', 'Register') — {{ config('registration.company.name') }}</title>
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -22,7 +22,7 @@
 
     <header class="nav">
         <div class="wrap nav-inner">
-            <a href="{{ url('/') }}" class="nav-title">{{ config('app.name') }}</a>
+            <a href="{{ url('/') }}" class="nav-title">{{ config('registration.company.name') }}</a>
         </div>
     </header>
 
@@ -32,7 +32,7 @@
         <div class="wrap">
             <div class="foot-cols">
                 <div>
-                    <h3>{{ config('app.name') }}</h3>
+                    <h3>{{ config('registration.company.name') }}</h3>
                     <p style="margin-top:1rem">{{ config('registration.company.address') }}<br>{{ config('registration.company.region') }}</p>
                 </div>
                 <div>
@@ -53,7 +53,7 @@
                 </div>
             </div>
             <div class="foot-bar">
-                <span>© {{ date('Y') }} {{ config('app.name') }}. All rights reserved.</span>
+                <span>© {{ date('Y') }} {{ config('registration.company.name') }}. All rights reserved.</span>
                 <span>{{ config('registration.company.region') }}</span>
             </div>
         </div>
