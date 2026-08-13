@@ -11,11 +11,11 @@ return [
     ),
 
     'company' => [
-        'name'    => 'A UNIQUE TEL, UNIPESSOAL LDA',
-        'nipc'    => '510296211',
-        'legal'   => 'Sociedade por Quotas',
-        'address' => 'Rua Angola, nº 4, Centro Comercial Satélite, loja 30, Cacém',
-        'region'  => 'Cacém e São Marcos, 2735-229 Cacém — Sintra, Lisboa',
+        'name'    => env('COMPANY_NAME', 'A UNIQUE TEL, UNIPESSOAL LDA'),
+        'nipc'    => env('COMPANY_NIPC', '510296211'),
+        'legal'   => env('COMPANY_LEGAL', 'Sociedade por Quotas'),
+        'address' => env('COMPANY_ADDRESS', 'Rua Angola, nº 4, Centro Comercial Satélite, loja 30, Cacém'),
+        'region'  => env('COMPANY_REGION', 'Cacém e São Marcos, 2735-229 Cacém — Sintra, Lisboa'),
     ],
 
     /*
