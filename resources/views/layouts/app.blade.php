@@ -16,7 +16,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
 
-    <link rel="stylesheet" href="{{ asset('css/registration.css') }}?v=3">
+    <link rel="stylesheet" href="{{ asset('css/registration.css') }}?v=6">
 </head>
 <body>
 
@@ -25,11 +25,7 @@
             <a href="{{ url('/') }}" class="logo">
                 <img src="{{ asset('images/logo.jpg') }}" alt="A Unique Tel - Mobiles & Tablets">
             </a>
-            <nav class="nav-links">
-                <a href="{{ url('/') }}" class="hide-sm">Home</a>
-                <a href="mailto:{{ $adminEmail }}" class="hide-sm">Contact</a>
-                <a href="{{ route('register.create') }}" class="nav-cta">Register</a>
-            </nav>
+            <a href="{{ url('/') }}" class="nav-title">A UNIQUE TEL</a>
         </div>
     </header>
 
