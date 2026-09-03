@@ -1,14 +1,14 @@
 <?php
 
 /**
- * Transfer products from a source MySQL database to a target MySQL database.
+ * Transfer brands from a source MySQL database to a target MySQL database.
  *
  * WARNING: This file now contains plain-text database credentials.
  * Do not commit or push it to Git. Keep it on your local machine only.
  *
  * Fill in the $source and $target arrays below, then run:
  *
- *     php transfer-products.php
+ *     php transfer-brands.php
  */
 
 // ----- Database credentials -----
@@ -19,7 +19,7 @@ $source = [
     'port'     => '3306',
     'user'     => 'root',
     'pass'     => '',
-    'database' => 'registration',
+    'database' => 'source_db',
 ];
 
 $target = [
@@ -27,7 +27,7 @@ $target = [
     'port'     => '3306',
     'user'     => 'root',
     'pass'     => '',
-    'database' => 'erp_warehouse',
+    'database' => 'target_db',
 ];
 
 // Set to false if you want to append instead of replacing existing rows.
@@ -36,52 +36,23 @@ $clearTarget = true;
 // Column mapping: source column => target column
 // Use a string for one target, or an array to copy one source value into multiple targets.
 $columnMap = [
-    'id'                  => 'id',
-    'name'                => ['product_name', 'name'],
-    'product_description' => 'product_description',
-    'purchase_price'      => 'purchased_price',
-    'sku'                 => 'product_code',
-    'ean'                 => 'gtin_code',
-    'weight'              => 'product_weight',
-    'brand_id'            => 'brand_id',
-    'created_at'          => 'created_at',
-    'updated_at'          => 'updated_at',
-    'is_inactive'         => 'isactive',
-    'category_id'         => ['c_id', 'cid'],
-    'barcode_type'        => 'product_barcode',
-    'enable_sr_no'        => 'has_serial_number',
+    'id'          => 'id',
+    'business_id' => 'company_id',
+    'name'        => 'name',
+    'description' => 'description',
+    'created_at'  => 'created_at',
+    'updated_at'  => 'updated_at',
     // Add more mappings below, e.g.:
-    // 'business_id'    => 'company_id',
-    // 'tax'            => 'vat_id',
+    // 'use_for_repair' => 'priority',
 ];
 
 // Transform a source value before it is written to the target.
 // Keyed by the source column name. Use a closure or a PHP function name.
 $transformers = [
-    'purchase_price' => function ($value) {
-        return is_numeric($value) ? (float) $value : 0.0;
-    },
-    'weight' => function ($value) {
-        return is_numeric($value) ? (float) $value : 0.0;
-    },
-    'is_inactive' => function ($value) {
-        // isactive is the inverse of is_inactive
-        return $value ? 0 : 1;
-    },
-    'created_at' => function ($value) {
-        return $value ?? date('Y-m-d H:i:s');
-    },
-    'updated_at' => function ($value) {
-        return $value ?? date('Y-m-d H:i:s');
-    },
-];
-
-// Computed columns: target column => closure(row) returning the value.
-$computed = [
-    'product_price' => function ($row) {
-        $price = is_numeric($row['purchase_price'] ?? null) ? (float) $row['purchase_price'] : 0.0;
-        return $price * 0.08;
-    },
+    'id'          => 'intval',
+    'business_id' => 'intval',
+    'created_at'  => function ($value) { return $value ?? date('Y-m-d H:i:s'); },
+    'updated_at'  => function ($value) { return $value ?? date('Y-m-d H:i:s'); },
 ];
 
 // ----- Connect -----
@@ -113,13 +84,8 @@ foreach ($columnMap as $sourceCol => $targets) {
     }
 }
 
-foreach ($computed as $targetCol => $closure) {
-    $expandedMap[] = ['target' => $targetCol, 'closure' => $closure];
-    $targetColumns[] = $targetCol;
-}
-
 // Make sure each target column exists in the real target table.
-$existingColumns = $targetPdo->query('SHOW COLUMNS FROM products')
+$existingColumns = $targetPdo->query('SHOW COLUMNS FROM brands')
     ->fetchAll(PDO::FETCH_COLUMN);
 
 $validMap = [];
@@ -140,7 +106,7 @@ $targetColumns = $validColumns;
 $columnsSql = '`' . implode('`, `', $targetColumns) . '`';
 $placeholders = implode(',', array_fill(0, count($targetColumns), '?'));
 
-$insertSql = "INSERT INTO products ({$columnsSql}) VALUES ({$placeholders})";
+$insertSql = "INSERT INTO brands ({$columnsSql}) VALUES ({$placeholders})";
 $insertStmt = $targetPdo->prepare($insertSql);
 
 // ----- Transfer -----
@@ -150,31 +116,27 @@ $targetPdo->exec('SET FOREIGN_KEY_CHECKS = 0');
 
 try {
     if ($clearTarget) {
-        $targetPdo->exec('TRUNCATE TABLE products');
+        $targetPdo->exec('TRUNCATE TABLE brands');
         echo "Target table truncated.\n";
     }
 
-    $sourceCount = (int) $sourcePdo->query('SELECT COUNT(*) FROM products')->fetchColumn();
-    echo "Source products: {$sourceCount}\n";
+    $sourceCount = (int) $sourcePdo->query('SELECT COUNT(*) FROM brands')->fetchColumn();
+    echo "Source brands: {$sourceCount}\n";
 
     $targetPdo->beginTransaction();
 
-    $stmt = $sourcePdo->query('SELECT * FROM products');
+    $stmt = $sourcePdo->query('SELECT * FROM brands');
     $transferred = 0;
 
     while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
         $values = [];
 
         foreach ($expandedMap as $map) {
-            if (isset($map['closure']) && is_callable($map['closure'])) {
-                $value = $map['closure']($row);
-            } else {
-                $sourceCol = $map['source'];
-                $value = $row[$sourceCol] ?? null;
+            $sourceCol = $map['source'];
+            $value = $row[$sourceCol] ?? null;
 
-                if (isset($transformers[$sourceCol]) && is_callable($transformers[$sourceCol])) {
-                    $value = $transformers[$sourceCol]($value);
-                }
+            if (isset($transformers[$sourceCol]) && is_callable($transformers[$sourceCol])) {
+                $value = $transformers[$sourceCol]($value);
             }
 
             $values[] = $value;
@@ -186,7 +148,7 @@ try {
 
     $targetPdo->commit();
 
-    echo "Transferred {$transferred} products to target database.\n";
+    echo "Transferred {$transferred} brands to target database.\n";
 } catch (Throwable $e) {
     $targetPdo->rollBack();
     throw $e;
