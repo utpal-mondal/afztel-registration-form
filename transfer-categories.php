@@ -15,19 +15,19 @@
 // Fill these in with your source and target database details.
 
 $source = [
-    'host'     => '127.0.0.1',
+    'host'     => 'afztelcrm.cp8csqqkyq51.eu-central-1.rds.amazonaws.com',
     'port'     => '3306',
-    'user'     => 'root',
-    'pass'     => '',
-    'database' => 'source_db',
+    'user'     => 'admin',
+    'pass'     => '$*Apple4678',
+    'database' => 'afztel_crm',
 ];
 
 $target = [
-    'host'     => '127.0.0.1',
+    'host'     => 'afztelcrm.cp8csqqkyq51.eu-central-1.rds.amazonaws.com',
     'port'     => '3306',
-    'user'     => 'root',
-    'pass'     => '',
-    'database' => 'target_db',
+    'user'     => 'admin',
+    'pass'     => '$*Apple4678',
+    'database' => 'afztel',
 ];
 
 // Set to false if you want to append instead of replacing existing rows.
