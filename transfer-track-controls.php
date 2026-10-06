@@ -50,8 +50,8 @@ $columnMap = [
     'invoice_number'             => 'invoice_number',
     'start_date'                 => 'start_date',
     'date'                       => ['created_at', 'updated_at'],
-    'our_company'                => 'our_company',
-    'client_company'             => 'client_company',
+    'our_company'                => ['our_company_id', 'our_company'],
+    'client_company'             => ['client_company_id', 'client_company'],
     'total_amount'               => 'total_amount',
     'note'                       => 'note',
     'first_ref_date'             => 'first_reference_date',
@@ -80,9 +80,6 @@ $columnMap = [
     'user_id'                    => 'user_id',
     'final_trakcing_id'          => 'tracking_number',
     'status'                     => 'status',
-    // No source mapping for: our_company_id, client_company_id,
-    // first_reference_tracking_id, second_reference_tracking_id,
-    // first/second_shipping_ref_amount (no target column).
 ];
 
 // ----- Shared transformers -----
