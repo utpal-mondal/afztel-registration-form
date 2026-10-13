@@ -92,11 +92,32 @@ $columnMap = [
 // ----- Shared transformers -----
 
 // Parse a text/varchar date into 'Y-m-d H:i:s', or null if empty/unparseable.
+// Source uses day-first formats like 30/09/2026, which strtotime() would
+// misparse as m/d/Y, so explicit d/m/Y formats are tried first.
 $toDatetime = function ($value) {
     if ($value === null || trim((string) $value) === '') {
         return null;
     }
-    $ts = strtotime((string) $value);
+    $value = trim((string) $value);
+
+    $formats = [
+        'd/m/Y H:i:s', 'd/m/Y H:i', 'd/m/Y',
+        'd-m-Y H:i:s', 'd-m-Y H:i', 'd-m-Y',
+        'd.m.Y H:i:s', 'd.m.Y H:i', 'd.m.Y',
+        'Y-m-d H:i:s', 'Y-m-d',
+    ];
+
+    foreach ($formats as $format) {
+        $dt = DateTime::createFromFormat($format, $value);
+        if ($dt !== false) {
+            $errors = DateTime::getLastErrors();
+            if ($errors === false || ($errors['warning_count'] === 0 && $errors['error_count'] === 0)) {
+                return $dt->format('Y-m-d H:i:s');
+            }
+        }
+    }
+
+    $ts = strtotime($value);
     return $ts === false ? null : date('Y-m-d H:i:s', $ts);
 };
 
