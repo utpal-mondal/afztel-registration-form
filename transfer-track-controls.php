@@ -49,6 +49,25 @@ $responsiblePersonMap = [
 // Final URL: {s3FileBaseUrl}/{track_control_id}/{source image filename}
 $s3FileBaseUrl = 'https://asset.s3.eu-central-1.amazonaws.com/tracking/img';
 
+// Source reference column groups: [date, total, bank].
+// A track_control_references row is inserted only when at least one
+// of the three source values is non-empty.
+$referenceGroups = [
+    ['first_ref_date',  'first_ref_total',  'first_ref_bank'],
+    ['second_ref_date', 'second_ref_total', 'second_ref_bank'],
+    ['third_ref_date',  'third_ref_total',  'third_ref_bank'],
+    ['fourth_ref_date', 'fourth_ref_total', 'fourth_ref_bank'],
+    ['fifth_ref_date',  'fifth_ref_total',  'fifth_ref_bank'],
+];
+
+// Source shipping column groups: [date, method, box, amount].
+// A track_control_shippings row is inserted only when at least one
+// of the four source values is non-empty.
+$shippingGroups = [
+    ['first_shipping_ref_date',  'first_shipping_ref_method',  'first_shipping_ref_box',  'first_shipping_ref_amount'],
+    ['second_shipping_ref_date', 'second_shipping_ref_method', 'second_shipping_ref_box', 'second_shipping_ref_amount'],
+];
+
 // Column mapping: source column => target column
 // Use a string for one target, or an array to copy one source value into multiple targets.
 $columnMap = [
@@ -61,29 +80,9 @@ $columnMap = [
     'client_company'             => ['client_company_id', 'client_company'],
     'total_amount'               => 'total_amount',
     'note'                       => 'note',
-    'first_ref_date'             => 'first_reference_date',
-    'first_ref_total'            => 'first_reference_amount',
-    'first_ref_bank'             => 'first_reference_bank_name',
-    'second_ref_date'            => 'second_reference_date',
-    'second_ref_total'           => 'second_reference_amount',
-    'second_ref_bank'            => 'second_reference_bank_name',
-    'third_ref_date'             => 'third_reference_date',
-    'third_ref_total'            => 'third_reference_amount',
-    'third_ref_bank'             => 'third_reference_bank_name',
-    'fourth_ref_date'            => 'fourth_reference_date',
-    'fourth_ref_total'           => 'fourth_reference_amount',
-    'fourth_ref_bank'            => 'fourth_reference_bank_name',
-    'fifth_ref_date'             => 'fifth_reference_date',
-    'fifth_ref_total'            => 'fifth_reference_amount',
-    'fifth_ref_bank'             => 'fifth_reference_bank_name',
-    'first_shipping_ref_date'    => 'first_shipping_reference_date',
-    'first_shipping_ref_method'  => 'first_shipping_reference_method',
-    'first_shipping_ref_box'     => 'first_reference_t_box',
-    'first_shipping_ref_amount'  => 'first_reference_tracking_id',
-    'second_shipping_ref_date'   => 'second_shipping_reference_date',
-    'second_shipping_ref_method' => 'second_shipping_reference_method',
-    'second_shipping_ref_box'    => 'second_reference_t_box',
-    'second_shipping_ref_amount' => 'second_reference_tracking_id',
+    // The five *_ref_* column groups go to track_control_references instead
+    // (see $referenceGroups above), and the two *_shipping_ref_* groups go
+    // to track_control_shippings (see $shippingGroups above).
     'user_id'                    => 'user_id',
     'final_trakcing_id'          => 'tracking_number',
     'status'                     => 'status',
@@ -152,27 +151,6 @@ $transformers = [
     'our_company'                => $toString50,
     'client_company'             => $toString50,
     'total_amount'               => $toDecimal,
-    'first_ref_date'             => $toDatetime,
-    'first_ref_total'            => $toDecimal,
-    'first_ref_bank'             => $toString50,
-    'second_ref_date'            => $toDatetime,
-    'second_ref_total'           => $toDecimal,
-    'second_ref_bank'            => $toString50,
-    'third_ref_date'             => $toDatetime,
-    'third_ref_total'            => $toDecimal,
-    'third_ref_bank'             => $toString50,
-    'fourth_ref_date'            => $toDatetime,
-    'fourth_ref_total'           => $toDecimal,
-    'fourth_ref_bank'            => $toString50,
-    'fifth_ref_date'             => $toDatetime,
-    'fifth_ref_total'            => $toDecimal,
-    'fifth_ref_bank'             => $toString50,
-    'first_shipping_ref_date'    => $toDatetime,
-    'first_shipping_ref_method'  => $toString50,
-    'first_shipping_ref_box'     => $toString50,
-    'second_shipping_ref_date'   => $toDatetime,
-    'second_shipping_ref_method' => $toString50,
-    'second_shipping_ref_box'    => $toString50,
     'user_id'                    => $toInt,
     'final_trakcing_id'          => $toString50,
     'status'                     => function ($value) {
@@ -273,6 +251,44 @@ if ($fileValidCols) {
     );
 }
 
+// ----- Prepare track_control_references insert -----
+
+$refColumns = [
+    'track_control_id', 'reference_date', 'reference_amount',
+    'reference_bank_name', 'created_at', 'updated_at',
+];
+$refExisting = $targetPdo->query('SHOW COLUMNS FROM track_control_references')
+    ->fetchAll(PDO::FETCH_COLUMN);
+$refValidCols = array_values(array_intersect($refColumns, $refExisting));
+
+$refStmt = null;
+if ($refValidCols) {
+    $refColumnsSql = '`' . implode('`, `', $refValidCols) . '`';
+    $refPlaceholders = implode(',', array_fill(0, count($refValidCols), '?'));
+    $refStmt = $targetPdo->prepare(
+        "INSERT INTO track_control_references ({$refColumnsSql}) VALUES ({$refPlaceholders})"
+    );
+}
+
+// ----- Prepare track_control_shippings insert -----
+
+$shipColumns = [
+    'track_control_id', 'shipping_date', 'shipping_method',
+    't_box', 'tracking_id', 'created_at', 'updated_at',
+];
+$shipExisting = $targetPdo->query('SHOW COLUMNS FROM track_control_shippings')
+    ->fetchAll(PDO::FETCH_COLUMN);
+$shipValidCols = array_values(array_intersect($shipColumns, $shipExisting));
+
+$shipStmt = null;
+if ($shipValidCols) {
+    $shipColumnsSql = '`' . implode('`, `', $shipValidCols) . '`';
+    $shipPlaceholders = implode(',', array_fill(0, count($shipValidCols), '?'));
+    $shipStmt = $targetPdo->prepare(
+        "INSERT INTO track_control_shippings ({$shipColumnsSql}) VALUES ({$shipPlaceholders})"
+    );
+}
+
 // ----- Transfer -----
 
 // Disable foreign key checks while the table is cleared and rebuilt.
@@ -280,6 +296,8 @@ $targetPdo->exec('SET FOREIGN_KEY_CHECKS = 0');
 
 try {
     if ($clearTarget) {
+        $targetPdo->exec('TRUNCATE TABLE track_control_shippings');
+        $targetPdo->exec('TRUNCATE TABLE track_control_references');
         $targetPdo->exec('TRUNCATE TABLE tracking_control_files');
         $targetPdo->exec('TRUNCATE TABLE track_controls');
         echo "Target tables truncated.\n";
@@ -294,6 +312,8 @@ try {
     $transferred = 0;
     $failed = 0;
     $files = 0;
+    $refs = 0;
+    $shippings = 0;
 
     while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
         $values = [];
@@ -347,12 +367,97 @@ try {
                 echo "File insert for row {$row['id']} failed: {$fileError->getMessage()}\n";
             }
         }
+
+        // Insert a track_control_references row for each reference group
+        // that has at least one non-empty source value.
+        if ($refStmt !== null) {
+            foreach ($referenceGroups as $group) {
+                [$dateCol, $totalCol, $bankCol] = $group;
+
+                $hasData = trim((string) ($row[$dateCol] ?? '')) !== ''
+                    || trim((string) ($row[$totalCol] ?? '')) !== ''
+                    || trim((string) ($row[$bankCol] ?? '')) !== '';
+
+                if (! $hasData) {
+                    continue;
+                }
+
+                $refValues = [];
+                foreach ($refValidCols as $col) {
+                    if ($col === 'track_control_id') {
+                        $refValues[] = $row['id'];
+                    } elseif ($col === 'reference_date') {
+                        $refValues[] = $toDatetime($row[$dateCol] ?? null);
+                    } elseif ($col === 'reference_amount') {
+                        $refValues[] = $toDecimal($row[$totalCol] ?? null);
+                    } elseif ($col === 'reference_bank_name') {
+                        $refValues[] = $toString50($row[$bankCol] ?? null);
+                    } elseif ($col === 'created_at' || $col === 'updated_at') {
+                        $refValues[] = date('Y-m-d H:i:s');
+                    } else {
+                        $refValues[] = null;
+                    }
+                }
+
+                try {
+                    $refStmt->execute($refValues);
+                    $refs++;
+                } catch (Throwable $refError) {
+                    echo "Reference insert for row {$row['id']} failed: {$refError->getMessage()}\n";
+                }
+            }
+        }
+
+        // Insert a track_control_shippings row for each shipping group
+        // that has at least one non-empty source value.
+        if ($shipStmt !== null) {
+            foreach ($shippingGroups as $group) {
+                [$dateCol, $methodCol, $boxCol, $amountCol] = $group;
+
+                $hasData = trim((string) ($row[$dateCol] ?? '')) !== ''
+                    || trim((string) ($row[$methodCol] ?? '')) !== ''
+                    || trim((string) ($row[$boxCol] ?? '')) !== ''
+                    || trim((string) ($row[$amountCol] ?? '')) !== '';
+
+                if (! $hasData) {
+                    continue;
+                }
+
+                $shipValues = [];
+                foreach ($shipValidCols as $col) {
+                    if ($col === 'track_control_id') {
+                        $shipValues[] = $row['id'];
+                    } elseif ($col === 'shipping_date') {
+                        $shipValues[] = $toDatetime($row[$dateCol] ?? null);
+                    } elseif ($col === 'shipping_method') {
+                        $shipValues[] = $toString50($row[$methodCol] ?? null);
+                    } elseif ($col === 't_box') {
+                        $shipValues[] = $toString50($row[$boxCol] ?? null);
+                    } elseif ($col === 'tracking_id') {
+                        $shipValues[] = $toString50($row[$amountCol] ?? null);
+                    } elseif ($col === 'created_at' || $col === 'updated_at') {
+                        $shipValues[] = date('Y-m-d H:i:s');
+                    } else {
+                        $shipValues[] = null;
+                    }
+                }
+
+                try {
+                    $shipStmt->execute($shipValues);
+                    $shippings++;
+                } catch (Throwable $shipError) {
+                    echo "Shipping insert for row {$row['id']} failed: {$shipError->getMessage()}\n";
+                }
+            }
+        }
     }
 
     $targetPdo->commit();
 
     echo "Transferred {$transferred} track control rows to target database.\n";
     echo "Inserted {$files} tracking_control_files rows.\n";
+    echo "Inserted {$refs} track_control_references rows.\n";
+    echo "Inserted {$shippings} track_control_shippings rows.\n";
     if ($failed > 0) {
         echo "Failed rows: {$failed}\n";
     }
