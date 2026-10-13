@@ -4,6 +4,9 @@
  * Transfer tracking control data (essentials_holidays -> track_controls)
  * from a source MySQL database to a target MySQL database.
  *
+ * Also creates a row in tracking_control_files for each source row that has
+ * an image filename, pointing to the file's S3 URL.
+ *
  * WARNING: This file contains plain-text database credentials.
  * Do not commit or push it to Git. Keep it on your local machine only.
  *
@@ -41,6 +44,10 @@ $responsiblePersonMap = [
     31 => 'Asim Baloch',
     32 => 'Aqib Ali',
 ];
+
+// S3 base URL used to build file_url values in tracking_control_files.
+// Final URL: {s3FileBaseUrl}/{track_control_id}/{source image filename}
+$s3FileBaseUrl = 'https://asset.s3.eu-central-1.amazonaws.com/tracking';
 
 // Column mapping: source column => target column
 // Use a string for one target, or an array to copy one source value into multiple targets.
@@ -229,6 +236,22 @@ $placeholders = implode(',', array_fill(0, count($targetColumns), '?'));
 $insertSql = "INSERT INTO track_controls ({$columnsSql}) VALUES ({$placeholders})";
 $insertStmt = $targetPdo->prepare($insertSql);
 
+// ----- Prepare tracking_control_files insert -----
+
+$fileColumns = ['track_control_id', 'file_url', 'created_at', 'updated_at'];
+$fileExisting = $targetPdo->query('SHOW COLUMNS FROM tracking_control_files')
+    ->fetchAll(PDO::FETCH_COLUMN);
+$fileValidCols = array_values(array_intersect($fileColumns, $fileExisting));
+
+$fileStmt = null;
+if ($fileValidCols) {
+    $fileColumnsSql = '`' . implode('`, `', $fileValidCols) . '`';
+    $filePlaceholders = implode(',', array_fill(0, count($fileValidCols), '?'));
+    $fileStmt = $targetPdo->prepare(
+        "INSERT INTO tracking_control_files ({$fileColumnsSql}) VALUES ({$filePlaceholders})"
+    );
+}
+
 // ----- Transfer -----
 
 // Disable foreign key checks while the table is cleared and rebuilt.
@@ -236,8 +259,9 @@ $targetPdo->exec('SET FOREIGN_KEY_CHECKS = 0');
 
 try {
     if ($clearTarget) {
+        $targetPdo->exec('TRUNCATE TABLE tracking_control_files');
         $targetPdo->exec('TRUNCATE TABLE track_controls');
-        echo "Target table truncated.\n";
+        echo "Target tables truncated.\n";
     }
 
     $sourceCount = (int) $sourcePdo->query('SELECT COUNT(*) FROM essentials_holidays')->fetchColumn();
@@ -248,6 +272,7 @@ try {
     $stmt = $sourcePdo->query('SELECT * FROM essentials_holidays');
     $transferred = 0;
     $failed = 0;
+    $files = 0;
 
     while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
         $values = [];
@@ -273,12 +298,40 @@ try {
         } catch (Throwable $rowError) {
             $failed++;
             echo "Row {$row['id']} failed: {$rowError->getMessage()}\n";
+            continue;
+        }
+
+        // Insert a tracking_control_files row when the source row has an image.
+        $image = trim((string) ($row['image'] ?? ''));
+        if ($image !== '' && $fileStmt !== null) {
+            $fileUrl = mb_substr($s3FileBaseUrl . '/' . $row['id'] . '/' . $image, 0, 500);
+
+            $fileValues = [];
+            foreach ($fileValidCols as $col) {
+                if ($col === 'track_control_id') {
+                    $fileValues[] = $row['id'];
+                } elseif ($col === 'file_url') {
+                    $fileValues[] = $fileUrl;
+                } elseif ($col === 'created_at' || $col === 'updated_at') {
+                    $fileValues[] = date('Y-m-d H:i:s');
+                } else {
+                    $fileValues[] = null;
+                }
+            }
+
+            try {
+                $fileStmt->execute($fileValues);
+                $files++;
+            } catch (Throwable $fileError) {
+                echo "File insert for row {$row['id']} failed: {$fileError->getMessage()}\n";
+            }
         }
     }
 
     $targetPdo->commit();
 
     echo "Transferred {$transferred} track control rows to target database.\n";
+    echo "Inserted {$files} tracking_control_files rows.\n";
     if ($failed > 0) {
         echo "Failed rows: {$failed}\n";
     }
