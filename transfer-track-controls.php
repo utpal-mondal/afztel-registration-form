@@ -47,7 +47,7 @@ $responsiblePersonMap = [
 
 // S3 base URL used to build file_url values in tracking_control_files.
 // Final URL: {s3FileBaseUrl}/{track_control_id}/{source image filename}
-$s3FileBaseUrl = 'https://asset.s3.eu-central-1.amazonaws.com/tracking';
+$s3FileBaseUrl = 'https://asset.s3.eu-central-1.amazonaws.com/tracking/img';
 
 // Column mapping: source column => target column
 // Use a string for one target, or an array to copy one source value into multiple targets.
@@ -304,7 +304,7 @@ try {
         // Insert a tracking_control_files row when the source row has an image.
         $image = trim((string) ($row['image'] ?? ''));
         if ($image !== '' && $fileStmt !== null) {
-            $fileUrl = mb_substr($s3FileBaseUrl . '/' . $row['id'] . '/' . $image, 0, 500);
+            $fileUrl = mb_substr($s3FileBaseUrl . '/' . $image, 0, 500);
 
             $fileValues = [];
             foreach ($fileValidCols as $col) {
